@@ -145,10 +145,9 @@ def main():
 
         if do_exec:
             print("\n=== EXEC ===")
-            # Execute in a minimal sandbox-ish context
+            # Single namespace so top-level defs (e.g. 小计算器, main) are visible when main() runs
             glb = {"__name__": "__catapillar_exec__"}
-            loc = {}
-            exec(py_code, glb, loc)
+            exec(py_code, glb)
 
         print("\n=== AST ===")
         print(ast)

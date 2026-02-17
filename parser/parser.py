@@ -16,10 +16,29 @@ ACTION_IDS = {
     "PRINT": {"print", "印"},
     "SET": {"set", "置"},
     "CALL": {"call", "调"},
+    # v0.2 extensions for calculator
+    "DEF": {"def", "定"},
+    "RETURN": {"return", "回"},
+    "IF": {"if", "若"},
+    "ELIF": {"elif", "又若"},
+    "ELSE": {"else", "否则"},
+    "WHILE": {"while", "当"},
+    "FOR": {"for", "扭扭"},
+    "BREAK": {"break", "断"},
+    "CONTINUE": {"continue", "续"},
+    "TRY": {"try", "试"},
+    "EXCEPT": {"except", "捕"},
+    "FINALLY": {"finally", "终于"},
+    "PASS": {"pass", "空"},
+    # Arithmetic operations
+    "ADD": {"add", "加"},
+    "SUB": {"sub", "减"},
+    "MUL": {"mul", "乘"},
+    "DIV": {"div", "除"},
 }
 
 STRUCT_IDS = {
-    "BLOCK_END": {"end","结束","完了"},
+    "BLOCK_END": {"end","结束","完了","终"},
 }
 
 ACTION_LOOKUP = {
@@ -77,7 +96,12 @@ def parse_tokens(tokens: List[Dict]) -> Dict:
             struct_id = STRUCT_LOOKUP[raw_action]
 
             if struct_id == "BLOCK_END":
-                # 这里做 block 关闭逻辑
+                # Emit a BLOCK_END node so the mapper can dedent
+                line_node = {
+                    "type": "BLOCK_END",
+                    "line_state": line_state,
+                }
+                current_segment["lines"].append(line_node)
                 continue
 
         # ----------------------------------------------------
@@ -98,20 +122,54 @@ def parse_tokens(tokens: List[Dict]) -> Dict:
             arrow_type = "<-"
 
         # ----------------------------------------------------
-        # 2️⃣ Detect Block Definition (e.g. 保存流程:)
+        # 2️⃣ Detect Block Definition (e.g. 保存流程:) or control keywords with :
         # ----------------------------------------------------
         if raw_action.endswith(":"):
             block_name = raw_action[:-1]  # 去掉冒号
 
-            block_node = {
-                "type": "Block",
-                "name": block_name,
-                "lines": [],
-                "line_state": line_state,
-            }
+            # Check if this is a control keyword that should be an action
+            # These are: 否则 (else), 试 (try), 终于 (finally)
+            if block_name in ["否则", "else"]:
+                # This is an ELSE statement
+                line_node = {
+                    "type": "Line",
+                    "action": "ELSE",
+                    "args": [],
+                    "line_state": line_state,
+                }
+                current_segment["lines"].append(line_node)
+                continue
+            elif block_name in ["试", "try"]:
+                # This is a TRY statement
+                line_node = {
+                    "type": "Line",
+                    "action": "TRY",
+                    "args": [],
+                    "line_state": line_state,
+                }
+                current_segment["lines"].append(line_node)
+                continue
+            elif block_name in ["终于", "finally"]:
+                # This is a FINALLY statement
+                line_node = {
+                    "type": "Line",
+                    "action": "FINALLY",
+                    "args": [],
+                    "line_state": line_state,
+                }
+                current_segment["lines"].append(line_node)
+                continue
+            else:
+                # Regular block (like flow names)
+                block_node = {
+                    "type": "Block",
+                    "name": block_name,
+                    "lines": [],
+                    "line_state": line_state,
+                }
 
-            current_segment["lines"].append(block_node)
-            continue
+                current_segment["lines"].append(block_node)
+                continue
 
         # ----------------------------------------------------
         # 3️⃣ Handle Arrow Lines
